@@ -67,6 +67,7 @@ spec:
         volumeMounts:
         - name: opentelemetry-javaagent
           mountPath: /etc/opentelemetry-javaagent.jar
+          subPath: opentelemetry-javaagent.jar
       volumes:
       - name: opentelemetry-javaagent
         emptyDir: {}

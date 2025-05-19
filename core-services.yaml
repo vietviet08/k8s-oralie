@@ -133,7 +133,7 @@ spec:
         - name: SPRING_PROFILES_ACTIVE
           value: "default"
         - name: SPRING_CONFIG_IMPORT
-          value: "configserver:http://configserver:8071/"
+          value: "optional:configserver:http://configserver:8071/"
         - name: SPRING_DATASOURCE_URL
           value: "jdbc:mysql://oralie-db:3306/products_db"
         - name: SPRING_JPA_HIBERNATE_DDL_AUTO
@@ -142,6 +142,10 @@ spec:
           value: "true"
         - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
           value: "http://eurekaserver:8070/eureka/"
+        - name: EUREKA_CLIENT_REGISTER-WITH-EUREKA
+          value: "true"
+        - name: EUREKA_CLIENT_FETCH-REGISTRY
+          value: "true"
         - name: SPRING_DATA_REDIS_CONNECT-TIMEOUT
           value: "2s"
         - name: SPRING_DATA_REDIS_HOST
@@ -156,6 +160,20 @@ spec:
           value: "products-topic"
         - name: SPRING_KAFKA_CONSUMER_GROUP_ID
           value: "products-group"
+        - name: SPRING_KAFKA_CONSUMER_AUTO_OFFSET_RESET
+          value: "earliest"
+        - name: SPRING_KAFKA_CONSUMER_KEY_DESERIALIZER
+          value: "org.apache.kafka.common.serialization.StringDeserializer"
+        - name: SPRING_KAFKA_CONSUMER_VALUE_DESERIALIZER
+          value: "org.springframework.kafka.support.serializer.ErrorHandlingDeserializer"
+        - name: SPRING_KAFKA_CONSUMER_PROPERTIES_SPRING_DESERIALIZER_VALUE_DELEGATE_CLASS
+          value: "org.springframework.kafka.support.serializer.JsonDeserializer"
+        - name: SPRING_KAFKA_CONSUMER_PROPERTIES_SPRING_JSON_TRUSTED_PACKAGES
+          value: "*"
+        - name: SPRING_KAFKA_PRODUCER_KEY_SERIALIZER
+          value: "org.apache.kafka.common.serialization.StringSerializer"
+        - name: SPRING_KAFKA_PRODUCER_VALUE_SERIALIZER
+          value: "org.springframework.kafka.support.serializer.JsonSerializer"
         - name: JAVA_TOOL_OPTIONS
           value: "-javaagent:/etc/opentelemetry-javaagent.jar"
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
@@ -166,22 +184,27 @@ spec:
           httpGet:
             path: /actuator/health/liveness
             port: 8081
-          initialDelaySeconds: 120
-          periodSeconds: 10
+          initialDelaySeconds: 180
+          periodSeconds: 15
           timeoutSeconds: 5
+          failureThreshold: 3
         readinessProbe:
           httpGet:
             path: /actuator/health/readiness
             port: 8081
-          initialDelaySeconds: 120
-          periodSeconds: 10
+          initialDelaySeconds: 180
+          periodSeconds: 15
           timeoutSeconds: 5
+          failureThreshold: 3
         resources:
           limits:
             memory: 800Mi
+          requests:
+            memory: 512Mi
         volumeMounts:
         - name: opentelemetry-javaagent
           mountPath: /etc/opentelemetry-javaagent.jar
+          subPath: opentelemetry-javaagent.jar
       volumes:
       - name: opentelemetry-javaagent
         emptyDir: {}
