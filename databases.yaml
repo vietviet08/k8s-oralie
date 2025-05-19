@@ -143,6 +143,10 @@ spec:
         ports:
         - containerPort: 80
         env:
+        - name: PGADMIN_CONFIG_ENABLE_PROXY_HEADERS
+          value: "True"
+        - name: PGADMIN_CONFIG_PROXY_X_HOST_COUNT
+          value: "1"
         - name: PGADMIN_DEFAULT_EMAIL
           valueFrom:
             configMapKeyRef:
