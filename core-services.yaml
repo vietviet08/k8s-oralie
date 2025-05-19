@@ -1,0 +1,209 @@
+---
+# Accounts Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: accounts
+  namespace: oralie-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: accounts
+  template:
+    metadata:
+      labels:
+        app: accounts
+    spec:
+      containers:
+      - name: accounts
+        image: vietquoc2408/accounts-oralie:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SPRING_APPLICATION_NAME
+          value: "accounts"
+        - name: OTEL_SERVICE_NAME
+          value: "accounts"
+        - name: SPRING_PROFILES_ACTIVE
+          value: "default"
+        - name: SPRING_CONFIG_IMPORT
+          value: "configserver:http://configserver:8071/"
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:mysql://oralie-db:3306/accounts_db"
+        - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+          value: "update"
+        - name: SPRING_JPA_SHOW_SQL
+          value: "true"
+        - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+          value: "http://eurekaserver:8070/eureka/"
+        - name: IDP_URL
+          valueFrom:
+            configMapKeyRef:
+              name: oralie-config
+              key: KEYCLOAK_URL
+        - name: IDP_CLIENT_SECRET
+          valueFrom:
+            configMapKeyRef:
+              name: oralie-config
+              key: KEYCLOAK_CLIENT_SECRET
+        - name: IDP_CLIENT_ID
+          valueFrom:
+            configMapKeyRef:
+              name: oralie-config
+              key: KEYCLOAK_CLIENT_ID
+        - name: JAVA_TOOL_OPTIONS
+          value: "-javaagent:/etc/opentelemetry-javaagent.jar"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://tempo:4317"
+        - name: OTEL_METRICS_EXPORTER
+          value: "none"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8080
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8080
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          limits:
+            memory: 800Mi
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /etc/opentelemetry-javaagent.jar
+      volumes:
+      - name: opentelemetry-javaagent
+        emptyDir: {}
+      initContainers:
+      - name: download-otel-agent
+        image: curlimages/curl:latest
+        command:
+        - sh
+        - -c
+        - curl -L -o /agent/opentelemetry-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /agent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: accounts
+  namespace: oralie-system
+spec:
+  selector:
+    app: accounts
+  ports:
+  - port: 8080
+    targetPort: 8080
+---
+# Products Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: products
+  namespace: oralie-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: products
+  template:
+    metadata:
+      labels:
+        app: products
+    spec:
+      containers:
+      - name: products
+        image: vietquoc2408/products-oralie:latest
+        ports:
+        - containerPort: 8081
+        env:
+        - name: SPRING_APPLICATION_NAME
+          value: "products"
+        - name: OTEL_SERVICE_NAME
+          value: "products"
+        - name: SPRING_PROFILES_ACTIVE
+          value: "default"
+        - name: SPRING_CONFIG_IMPORT
+          value: "configserver:http://configserver:8071/"
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:mysql://oralie-db:3306/products_db"
+        - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+          value: "update"
+        - name: SPRING_JPA_SHOW_SQL
+          value: "true"
+        - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+          value: "http://eurekaserver:8070/eureka/"
+        - name: SPRING_DATA_REDIS_CONNECT-TIMEOUT
+          value: "2s"
+        - name: SPRING_DATA_REDIS_HOST
+          value: "redis"
+        - name: SPRING_DATA_REDIS_PORT
+          value: "6379"
+        - name: SPRING_DATA_REDIS_TIMEOUT
+          value: "1s"
+        - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:9092"
+        - name: SPRING_KAFKA_TEMPLATE_DEFAULT_TOPIC
+          value: "products-topic"
+        - name: SPRING_KAFKA_CONSUMER_GROUP_ID
+          value: "products-group"
+        - name: JAVA_TOOL_OPTIONS
+          value: "-javaagent:/etc/opentelemetry-javaagent.jar"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://tempo:4317"
+        - name: OTEL_METRICS_EXPORTER
+          value: "none"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8081
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8081
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          limits:
+            memory: 800Mi
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /etc/opentelemetry-javaagent.jar
+      volumes:
+      - name: opentelemetry-javaagent
+        emptyDir: {}
+      initContainers:
+      - name: download-otel-agent
+        image: curlimages/curl:latest
+        command:
+        - sh
+        - -c
+        - curl -L -o /agent/opentelemetry-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /agent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: products
+  namespace: oralie-system
+spec:
+  selector:
+    app: products
+  ports:
+  - port: 8081
+    targetPort: 8081 

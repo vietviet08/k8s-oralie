@@ -1,0 +1,152 @@
+---
+# Config Server
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: configserver
+  namespace: oralie-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: configserver
+  template:
+    metadata:
+      labels:
+        app: configserver
+    spec:
+      containers:
+      - name: configserver
+        image: vietquoc2408/configserver-oralie:latest
+        ports:
+        - containerPort: 8071
+        env:
+        - name: OTEL_SERVICE_NAME
+          value: "configserver"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8071
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8071
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          limits:
+            memory: 800Mi
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /etc/opentelemetry-javaagent.jar
+      volumes:
+      - name: opentelemetry-javaagent
+        emptyDir: {}
+      initContainers:
+      - name: download-otel-agent
+        image: curlimages/curl:latest
+        command:
+        - sh
+        - -c
+        - curl -L -o /agent/opentelemetry-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /agent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: configserver
+  namespace: oralie-system
+spec:
+  selector:
+    app: configserver
+  ports:
+  - port: 8071
+    targetPort: 8071
+---
+# Eureka Server
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eurekaserver
+  namespace: oralie-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eurekaserver
+  template:
+    metadata:
+      labels:
+        app: eurekaserver
+    spec:
+      containers:
+      - name: eurekaserver
+        image: vietquoc2408/eurekaserver-oralie:latest
+        ports:
+        - containerPort: 8070
+        env:
+        - name: SPRING_APPLICATION_NAME
+          value: "eurekaserver"
+        - name: OTEL_SERVICE_NAME
+          value: "eurekaserver"
+        - name: SPRING_PROFILES_ACTIVE
+          value: "default"
+        - name: SPRING_CONFIG_IMPORT
+          value: "configserver:http://configserver:8071/"
+        - name: JAVA_TOOL_OPTIONS
+          value: "-javaagent:/etc/opentelemetry-javaagent.jar"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://tempo:4317"
+        - name: OTEL_METRICS_EXPORTER
+          value: "none"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8070
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8070
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          limits:
+            memory: 800Mi
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /etc/opentelemetry-javaagent.jar
+      volumes:
+      - name: opentelemetry-javaagent
+        emptyDir: {}
+      initContainers:
+      - name: download-otel-agent
+        image: curlimages/curl:latest
+        command:
+        - sh
+        - -c
+        - curl -L -o /agent/opentelemetry-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /agent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: eurekaserver
+  namespace: oralie-system
+spec:
+  selector:
+    app: eurekaserver
+  ports:
+  - port: 8070
+    targetPort: 8070 

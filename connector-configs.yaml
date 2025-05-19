@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: connector-configs
+  namespace: oralie-system
+data:
+  postgres_connector.json: |
+    {
+      "name": "postgres-connector",
+      "config": {
+        "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+        "database.hostname": "postgres",
+        "database.port": "5432",
+        "database.user": "keycloak",
+        "database.password": "password",
+        "database.dbname": "keycloak",
+        "database.server.name": "postgres",
+        "plugin.name": "pgoutput"
+      }
+    }
+  mysql_connector.json: |
+    {
+      "name": "mysql-connector",
+      "config": {
+        "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+        "database.hostname": "oralie-db",
+        "database.port": "3306",
+        "database.user": "root",
+        "database.password": "root",
+        "database.server.id": "1",
+        "database.server.name": "mysql",
+        "database.include.list": "accounts_db,products_db,carts_db,orders_db,rates_db,inventory_db",
+        "database.history.kafka.bootstrap.servers": "kafka:9092",
+        "database.history.kafka.topic": "schema-changes.mysql"
+      }
+    } 

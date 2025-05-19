@@ -1,0 +1,144 @@
+---
+# Keycloak
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: oralie-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+      - name: keycloak
+        image: quay.io/keycloak/keycloak:26.0.6
+        args: ["start-dev"]
+        ports:
+        - containerPort: 8080
+        env:
+        - name: JAVA_OPTS_APPEND
+          value: -Dkeycloak.profile.feature.upload_scripts=enabled
+        - name: KC_DB
+          value: postgres
+        - name: KC_DB_USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: oralie-config
+              key: POSTGRES_USER
+        - name: KC_DB_PASSWORD
+          valueFrom:
+            configMapKeyRef:
+              name: oralie-config
+              key: POSTGRES_PASSWORD
+        - name: KC_DB_URL
+          value: jdbc:postgresql://postgres:5432/keycloak
+        - name: KC_HEALTH_ENABLED
+          value: "true"
+        - name: KC_HTTP_ENABLED
+          value: "true"
+        - name: KC_METRICS_ENABLED
+          value: "true"
+        - name: KEYCLOAK_ADMIN
+          valueFrom:
+            configMapKeyRef:
+              name: oralie-config
+              key: KEYCLOAK_ADMIN
+        - name: KEYCLOAK_ADMIN_PASSWORD
+          valueFrom:
+            configMapKeyRef:
+              name: oralie-config
+              key: KEYCLOAK_ADMIN_PASSWORD
+        volumeMounts:
+        - name: keycloak-themes
+          mountPath: /opt/keycloak/themes
+        - name: keycloak-realm-export
+          mountPath: /opt/keycloak/data/import
+      volumes:
+      - name: keycloak-themes
+        emptyDir: {}
+      - name: keycloak-realm-export
+        emptyDir: {}
+      initContainers:
+      - name: copy-themes
+        image: busybox
+        command: ['sh', '-c', 'echo "Theme files would be copied here in production"']
+        volumeMounts:
+        - name: keycloak-themes
+          mountPath: /opt/keycloak/themes
+      - name: copy-realm-export
+        image: busybox
+        command: ['sh', '-c', 'echo "Realm export would be copied here in production"']
+        volumeMounts:
+        - name: keycloak-realm-export
+          mountPath: /opt/keycloak/data/import
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+  namespace: oralie-system
+spec:
+  selector:
+    app: keycloak
+  ports:
+  - port: 8080
+    targetPort: 8080
+---
+# Elasticsearch
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch
+  namespace: oralie-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+    spec:
+      containers:
+      - name: elasticsearch
+        image: elasticsearch:8.15.3
+        ports:
+        - containerPort: 9200
+        - containerPort: 9300
+        env:
+        - name: ES_JAVA_OPTS
+          value: "-Xms512m -Xmx512m"
+        - name: xpack.security.enabled
+          value: "false"
+        - name: discovery.type
+          value: single-node
+        volumeMounts:
+        - name: elasticsearch-data
+          mountPath: /usr/share/elasticsearch/data
+      volumes:
+      - name: elasticsearch-data
+        persistentVolumeClaim:
+          claimName: elasticsearch-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+  namespace: oralie-system
+spec:
+  selector:
+    app: elasticsearch
+  ports:
+  - port: 9200
+    name: http
+    targetPort: 9200
+  - port: 9300
+    name: transport
+    targetPort: 9300 
