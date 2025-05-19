@@ -11,7 +11,7 @@ volumeBindingMode: WaitForFirstConsumer
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: nfs-pv-postgres
+  name: postgres-pv
 spec:
   capacity:
     storage: 5Gi
@@ -27,7 +27,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: nfs-pv-mysql
+  name: mysql-pv
 spec:
   capacity:
     storage: 5Gi
@@ -43,7 +43,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: nfs-pv-pgadmin
+  name: pgadmin-pv
 spec:
   capacity:
     storage: 5Gi
@@ -59,7 +59,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: nfs-pv-redis
+  name: redis-pv
 spec:
   capacity:
     storage: 5Gi
