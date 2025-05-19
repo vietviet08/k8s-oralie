@@ -1,11 +1,12 @@
 ---
 # PostgreSQL for Keycloak
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: postgres
   namespace: oralie-system
 spec:
+  serviceName: postgres
   replicas: 1
   selector:
     matchLabels:
@@ -46,7 +47,7 @@ spec:
       volumes:
       - name: postgres-data
         persistentVolumeClaim:
-          claimName: postgres-data
+          claimName: postgres-pvc
 ---
 apiVersion: v1
 kind: Service
@@ -62,11 +63,12 @@ spec:
 ---
 # MySQL for microservices
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: oralie-db
   namespace: oralie-system
 spec:
+  serviceName: oralie-db
   replicas: 1
   selector:
     matchLabels:
@@ -101,7 +103,7 @@ spec:
       volumes:
       - name: mysql-data
         persistentVolumeClaim:
-          claimName: mysql-data
+          claimName: mysql-pvc
       - name: mysql-init-scripts
         configMap:
           name: mysql-init-scripts
@@ -120,11 +122,12 @@ spec:
 ---
 # PgAdmin
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: pgadmin
   namespace: oralie-system
 spec:
+  serviceName: pgadmin
   replicas: 1
   selector:
     matchLabels:
@@ -156,7 +159,7 @@ spec:
       volumes:
       - name: pgadmin-data
         persistentVolumeClaim:
-          claimName: pgadmin-data
+          claimName: pgadmin-pvc
 ---
 apiVersion: v1
 kind: Service
@@ -172,11 +175,12 @@ spec:
 ---
 # Redis
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: redis
   namespace: oralie-system
 spec:
+  serviceName: redis
   replicas: 1
   selector:
     matchLabels:
@@ -191,6 +195,9 @@ spec:
         image: redis:latest
         ports:
         - containerPort: 6379
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
         readinessProbe:
           exec:
             command: ["redis-cli", "ping"]
@@ -198,6 +205,10 @@ spec:
           timeoutSeconds: 10
           periodSeconds: 10
           failureThreshold: 10
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: redis-pvc
 ---
 apiVersion: v1
 kind: Service
