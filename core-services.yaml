@@ -206,4 +206,672 @@ spec:
     app: products
   ports:
   - port: 8081
-    targetPort: 8081 
+    targetPort: 8081
+---
+# Carts Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: carts
+  namespace: oralie-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: carts
+  template:
+    metadata:
+      labels:
+        app: carts
+    spec:
+      containers:
+      - name: carts
+        image: vietquoc2408/carts-oralie:latest
+        ports:
+        - containerPort: 8082
+        env:
+        - name: SPRING_APPLICATION_NAME
+          value: "carts"
+        - name: OTEL_SERVICE_NAME
+          value: "carts"
+        - name: SPRING_PROFILES_ACTIVE
+          value: "default"
+        - name: SPRING_CONFIG_IMPORT
+          value: "configserver:http://configserver:8071/"
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:mysql://oralie-db:3306/carts_db"
+        - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+          value: "update"
+        - name: SPRING_JPA_SHOW_SQL
+          value: "true"
+        - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+          value: "http://eurekaserver:8070/eureka/"
+        - name: JAVA_TOOL_OPTIONS
+          value: "-javaagent:/etc/opentelemetry-javaagent.jar"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://tempo:4317"
+        - name: OTEL_METRICS_EXPORTER
+          value: "none"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8082
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8082
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          limits:
+            memory: 800Mi
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /etc/opentelemetry-javaagent.jar
+      volumes:
+      - name: opentelemetry-javaagent
+        emptyDir: {}
+      initContainers:
+      - name: download-otel-agent
+        image: curlimages/curl:latest
+        command:
+        - sh
+        - -c
+        - curl -L -o /agent/opentelemetry-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /agent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: carts
+  namespace: oralie-system
+spec:
+  selector:
+    app: carts
+  ports:
+  - port: 8082
+    targetPort: 8082
+---
+# Orders Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders
+  namespace: oralie-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orders
+  template:
+    metadata:
+      labels:
+        app: orders
+    spec:
+      containers:
+      - name: orders
+        image: vietquoc2408/orders-oralie:latest
+        ports:
+        - containerPort: 8083
+        env:
+        - name: SPRING_APPLICATION_NAME
+          value: "orders"
+        - name: OTEL_SERVICE_NAME
+          value: "orders"
+        - name: SPRING_PROFILES_ACTIVE
+          value: "default"
+        - name: SPRING_CONFIG_IMPORT
+          value: "configserver:http://configserver:8071/"
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:mysql://oralie-db:3306/orders_db"
+        - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+          value: "update"
+        - name: SPRING_JPA_SHOW_SQL
+          value: "true"
+        - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+          value: "http://eurekaserver:8070/eureka/"
+        - name: PAYPAL_CLIENT_ID
+          valueFrom:
+            configMapKeyRef:
+              name: oralie-config
+              key: PAYPAL_CLIENT_ID
+        - name: PAYPAL_CLIENT_SECRET
+          valueFrom:
+            configMapKeyRef:
+              name: oralie-config
+              key: PAYPAL_CLIENT_SECRET
+        - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:9092"
+        - name: SPRING_KAFKA_TEMPLATE_DEFAULT_TOPIC
+          value: "orders-topic"
+        - name: SPRING_KAFKA_CONSUMER_GROUP_ID
+          value: "orders-group"
+        - name: JAVA_TOOL_OPTIONS
+          value: "-javaagent:/etc/opentelemetry-javaagent.jar"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://tempo:4317"
+        - name: OTEL_METRICS_EXPORTER
+          value: "none"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8083
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8083
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          limits:
+            memory: 800Mi
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /etc/opentelemetry-javaagent.jar
+      volumes:
+      - name: opentelemetry-javaagent
+        emptyDir: {}
+      initContainers:
+      - name: download-otel-agent
+        image: curlimages/curl:latest
+        command:
+        - sh
+        - -c
+        - curl -L -o /agent/opentelemetry-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /agent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders
+  namespace: oralie-system
+spec:
+  selector:
+    app: orders
+  ports:
+  - port: 8083
+    targetPort: 8083
+---
+# Social Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: social
+  namespace: oralie-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: social
+  template:
+    metadata:
+      labels:
+        app: social
+    spec:
+      containers:
+      - name: social
+        image: vietquoc2408/social-oralie:latest
+        ports:
+        - containerPort: 8086
+        env:
+        - name: SPRING_APPLICATION_NAME
+          value: "social"
+        - name: OTEL_SERVICE_NAME
+          value: "social"
+        - name: SPRING_PROFILES_ACTIVE
+          value: "default"
+        - name: SPRING_CONFIG_IMPORT
+          value: "configserver:http://configserver:8071/"
+        - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+          value: "http://eurekaserver:8070/eureka/"
+        - name: AWS_REGION_STATIC
+          valueFrom:
+            configMapKeyRef:
+              name: oralie-config
+              key: AWS_REGION
+        - name: AWS_BUCKET_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: oralie-config
+              key: AWS_BUCKET_NAME
+        - name: AWS_CREDENTIALS_ACCESS_KEY
+          valueFrom:
+            configMapKeyRef:
+              name: oralie-config
+              key: AWS_ACCESS_KEY
+        - name: AWS_CREDENTIALS_SECRET_KEY
+          valueFrom:
+            configMapKeyRef:
+              name: oralie-config
+              key: AWS_SECRET_KEY
+        - name: JAVA_TOOL_OPTIONS
+          value: "-javaagent:/etc/opentelemetry-javaagent.jar"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://tempo:4317"
+        - name: OTEL_METRICS_EXPORTER
+          value: "none"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8086
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8086
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          limits:
+            memory: 800Mi
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /etc/opentelemetry-javaagent.jar
+      volumes:
+      - name: opentelemetry-javaagent
+        emptyDir: {}
+      initContainers:
+      - name: download-otel-agent
+        image: curlimages/curl:latest
+        command:
+        - sh
+        - -c
+        - curl -L -o /agent/opentelemetry-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /agent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: social
+  namespace: oralie-system
+spec:
+  selector:
+    app: social
+  ports:
+  - port: 8086
+    targetPort: 8086
+---
+# Rates Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rates
+  namespace: oralie-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rates
+  template:
+    metadata:
+      labels:
+        app: rates
+    spec:
+      containers:
+      - name: rates
+        image: vietquoc2408/rates-oralie:latest
+        ports:
+        - containerPort: 8084
+        env:
+        - name: SPRING_APPLICATION_NAME
+          value: "rates"
+        - name: OTEL_SERVICE_NAME
+          value: "rates"
+        - name: SPRING_PROFILES_ACTIVE
+          value: "default"
+        - name: SPRING_CONFIG_IMPORT
+          value: "configserver:http://configserver:8071/"
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:mysql://oralie-db:3306/rates_db"
+        - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+          value: "update"
+        - name: SPRING_JPA_SHOW_SQL
+          value: "true"
+        - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+          value: "http://eurekaserver:8070/eureka/"
+        - name: JAVA_TOOL_OPTIONS
+          value: "-javaagent:/etc/opentelemetry-javaagent.jar"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://tempo:4317"
+        - name: OTEL_METRICS_EXPORTER
+          value: "none"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8084
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8084
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          limits:
+            memory: 800Mi
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /etc/opentelemetry-javaagent.jar
+      volumes:
+      - name: opentelemetry-javaagent
+        emptyDir: {}
+      initContainers:
+      - name: download-otel-agent
+        image: curlimages/curl:latest
+        command:
+        - sh
+        - -c
+        - curl -L -o /agent/opentelemetry-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /agent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rates
+  namespace: oralie-system
+spec:
+  selector:
+    app: rates
+  ports:
+  - port: 8084
+    targetPort: 8084
+---
+# Inventory Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory
+  namespace: oralie-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inventory
+  template:
+    metadata:
+      labels:
+        app: inventory
+    spec:
+      containers:
+      - name: inventory
+        image: vietquoc2408/inventory-oralie:latest
+        ports:
+        - containerPort: 8089
+        env:
+        - name: SPRING_APPLICATION_NAME
+          value: "inventory"
+        - name: OTEL_SERVICE_NAME
+          value: "inventory"
+        - name: SPRING_PROFILES_ACTIVE
+          value: "default"
+        - name: SPRING_CONFIG_IMPORT
+          value: "configserver:http://configserver:8071/"
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:mysql://oralie-db:3306/inventory_db"
+        - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+          value: "update"
+        - name: SPRING_JPA_SHOW_SQL
+          value: "true"
+        - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+          value: "http://eurekaserver:8070/eureka/"
+        - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:9092"
+        - name: SPRING_KAFKA_TEMPLATE_DEFAULT_TOPIC
+          value: "inventory-topic"
+        - name: SPRING_KAFKA_CONSUMER_GROUP_ID
+          value: "inventory-group"
+        - name: JAVA_TOOL_OPTIONS
+          value: "-javaagent:/etc/opentelemetry-javaagent.jar"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://tempo:4317"
+        - name: OTEL_METRICS_EXPORTER
+          value: "none"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8089
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8089
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          limits:
+            memory: 800Mi
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /etc/opentelemetry-javaagent.jar
+      volumes:
+      - name: opentelemetry-javaagent
+        emptyDir: {}
+      initContainers:
+      - name: download-otel-agent
+        image: curlimages/curl:latest
+        command:
+        - sh
+        - -c
+        - curl -L -o /agent/opentelemetry-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /agent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventory
+  namespace: oralie-system
+spec:
+  selector:
+    app: inventory
+  ports:
+  - port: 8089
+    targetPort: 8089
+---
+# Notification Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification
+  namespace: oralie-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification
+  template:
+    metadata:
+      labels:
+        app: notification
+    spec:
+      containers:
+      - name: notification
+        image: vietquoc2408/notification-oralie:latest
+        ports:
+        - containerPort: 8087
+        env:
+        - name: SPRING_APPLICATION_NAME
+          value: "notification"
+        - name: SPRING_MAIL_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: oralie-config
+              key: MAIL_HOST
+        - name: SPRING_MAIL_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: oralie-config
+              key: MAIL_PORT
+        - name: SPRING_MAIL_USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: oralie-config
+              key: USERNAME_MAIL
+        - name: SPRING_MAIL_PASSWORD
+          valueFrom:
+            configMapKeyRef:
+              name: oralie-config
+              key: PASSWORD_MAIL
+        - name: SPRING_MAIL_PROTOCOL
+          value: "smtp"
+        - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:9092"
+        - name: SPRING_KAFKA_TEMPLATE_DEFAULT_TOPIC
+          value: "notification-topic"
+        - name: SPRING_KAFKA_CONSUMER_GROUP_ID
+          value: "notification-group"
+        - name: JAVA_TOOL_OPTIONS
+          value: "-javaagent:/etc/opentelemetry-javaagent.jar"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://tempo:4317"
+        - name: OTEL_METRICS_EXPORTER
+          value: "none"
+        resources:
+          limits:
+            memory: 800Mi
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /etc/opentelemetry-javaagent.jar
+      volumes:
+      - name: opentelemetry-javaagent
+        emptyDir: {}
+      initContainers:
+      - name: download-otel-agent
+        image: curlimages/curl:latest
+        command:
+        - sh
+        - -c
+        - curl -L -o /agent/opentelemetry-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /agent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification
+  namespace: oralie-system
+spec:
+  selector:
+    app: notification
+  ports:
+  - port: 8087
+    targetPort: 8087
+---
+# Search Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search
+  namespace: oralie-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: search
+  template:
+    metadata:
+      labels:
+        app: search
+    spec:
+      containers:
+      - name: search
+        image: vietquoc2408/search-oralie:latest
+        ports:
+        - containerPort: 8088
+        env:
+        - name: SPRING_APPLICATION_NAME
+          value: "search"
+        - name: OTEL_SERVICE_NAME
+          value: "search"
+        - name: SPRING_PROFILES_ACTIVE
+          value: "default"
+        - name: SPRING_CONFIG_IMPORT
+          value: "configserver:http://configserver:8071/"
+        - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+          value: "http://eurekaserver:8070/eureka/"
+        - name: SPRING_ELASTICSEARCH_URIS
+          value: "elasticsearch:9200"
+        - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:9092"
+        - name: SPRING_KAFKA_TEMPLATE_DEFAULT_TOPIC
+          value: "search-topic"
+        - name: SPRING_KAFKA_CONSUMER_GROUP_ID
+          value: "search-group"
+        - name: JAVA_TOOL_OPTIONS
+          value: "-javaagent:/etc/opentelemetry-javaagent.jar"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://tempo:4317"
+        - name: OTEL_METRICS_EXPORTER
+          value: "none"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8088
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8088
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          limits:
+            memory: 800Mi
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /etc/opentelemetry-javaagent.jar
+      volumes:
+      - name: opentelemetry-javaagent
+        emptyDir: {}
+      initContainers:
+      - name: download-otel-agent
+        image: curlimages/curl:latest
+        command:
+        - sh
+        - -c
+        - curl -L -o /agent/opentelemetry-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar
+        volumeMounts:
+        - name: opentelemetry-javaagent
+          mountPath: /agent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: search
+  namespace: oralie-system
+spec:
+  selector:
+    app: search
+  ports:
+  - port: 8088
+    targetPort: 8088 
